@@ -13,13 +13,12 @@ Create a Single-Node Kind K8s Cluster with the name "gitops" and some port mappi
 "kind create" will automatically add all information necessary to your kubeconfig file if your environment variable is set
 You can export these information manually to a specific file via 
 
-    kind export kubeconfig --kubeconfig ./terraform/kind-kubeconfig
+    kind export kubeconfig --kubeconfig ./kind-kubeconfig
 
 Normally Kind has access to Docker Hub, etc. If your working behind a corporate proxy etc I had some problems.
 I manually pulled all required images to my maschine and then loaded them into the Kind-Nodes via
 
-    kind load docker-image <your_image_mirror>/fluxcd/flux:1.18.0
-    kind load docker-image <your_image_mirror>/memcached:1.5.20
+    kind load docker-image quay.io/open-policy-agent/gatekeeper:v3.1.0-beta.8
     
 
 ## delete kind cluster

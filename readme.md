@@ -66,3 +66,35 @@ I don't know why two "policy" folders but it runs
 
 ## Enforce OPA-Policys in your Cluster with Gatekeeper
 
+Gatekeeper v1 (aka kube-mgmt) works with these previous written policies.
+
+The current version [Gatekeeper v3](https://kubernetes.io/blog/2019/08/06/opa-gatekeeper-policy-and-governance-for-kubernetes/) works with the [Open Policy Agent Constraint Framework](https://github.com/open-policy-agent/frameworks)
+
+Here policies are definied via Constraint Templates and Constraints
+
+Install Gatekeeper in your KinD Cluster
+
+    ./kubectl apply -f gatekeeper/gatekeeper.yaml
+
+    kubectl get all --all-namespaces
+
+    ./kubectl apply -f gatekeeper/policy/registry.template.yaml
+
+    ./kubectl apply -f gatekeeper/policy/registry.constraint.yaml
+
+### test these policies against your local files
+
+The opa binary nor conftest has the ability to check policies defined with the OPA Constraint Framework against local manifest files.
+
+The new announced project [kpt](https://googlecontainertools.github.io/kpt/) does have as mentioned in this Github Issue https://github.com/open-policy-agent/gatekeeper/issues/540
+
+I got this response:
+
+    docker run -i -v C:\Users\54623\Documents\git-repos\Github\Kubernetes_with_Open_Policy_Agent:/source gcr.io/kpt-functions/read-yaml -i /dev/null -d source_dir=/yaml_manifest_including_constraints_and_templates | docker run -i gcr.io/kpt-functions/gatekeeper-validate
+
+I modified it to get the source files from a named volume:
+
+    docker run -i -v gatekeeper-policy:/source gcr.io/kpt-functions/read-yaml -i /dev/null -d source_dir=/source | docker run -i gcr.io/kpt-functions/gatekeeper-validate
+
+Currently I'm hitting an rego_parse_error.
+I filled this [Issue here](https://github.com/GoogleContainerTools/kpt/issues/493)

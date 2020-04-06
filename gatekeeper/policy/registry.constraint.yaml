@@ -1,0 +1,15 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: registry
+metadata:
+  name: image-must-have-correct-registry
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod", "Deployment"]
+    #namespaces: []
+    #excludedNamespaces: []
+    #labelSelector: []
+    #namespaceSelector: []
+  parameters:
+    registry: ["quay.io/"]

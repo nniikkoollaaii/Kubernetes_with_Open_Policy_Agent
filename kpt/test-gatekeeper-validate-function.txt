@@ -1,0 +1,131 @@
+echo 'apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      config.kubernetes.io/index: "0"
+      config.kubernetes.io/path: app/deployment.yaml
+    labels:
+      app: test-app
+      name: test-app
+      namespace: default
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: test-app
+    template:
+      metadata:
+        labels:
+          app: test-app
+      spec:
+        containers:
+        - image: nginx:1.15.0
+          name: test-app
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+- apiVersion: constraints.gatekeeper.sh/v1beta1
+  kind: registry
+  metadata:
+    annotations:
+      config.kubernetes.io/index: "0"
+      config.kubernetes.io/path: policy/registry.constraint.yaml
+    name: image-must-have-correct-registry
+  spec:
+    match:
+      kinds:
+      - apiGroups:
+        - ""
+        kinds:
+        - Pod
+        - Deployment
+    parameters:
+      registry:
+      - quay.io/
+- apiVersion: extensions/v1beta1
+  kind: Ingress
+  metadata:
+    annotations:
+      config.kubernetes.io/index: "0"
+      config.kubernetes.io/path: app/ingress.yaml
+      nginx.ingress.kubernetes.io/rewrite-target: /$2
+    labels:
+      app: test-app
+    name: test-app
+    namespace: test
+  spec:
+    rules:
+    - host: test.de
+      http:
+        paths:
+        - backend:
+            serviceName: test-app
+            servicePort: http
+          path: test(/|$)(.*)
+- apiVersion: templates.gatekeeper.sh/v1beta1
+  kind: ConstraintTemplate
+  metadata:
+    annotations:
+      config.kubernetes.io/index: "0"
+      config.kubernetes.io/path: policy/registry.template.yaml
+    name: registry
+  spec:
+    crd:
+      spec:
+        names:
+          kind: registry
+        validation:
+          openAPIV3Schema:
+            properties:
+              registry:
+                items: null
+                type: array
+    targets:
+    - rego: |
+        package registry
+        violation[{"msg": msg, "details": {}}] {
+          input_containers[container]
+          #(, "quay.io/")
+          not startswith(container.image, input.parameters.registry)
+          msg := sprintf("image comes from untrusted registry")
+        }
+         # read containers from various inputs
+         # kubernetes admission review for kind pod
+        input_containers[container] {
+            container := input.request.object.spec.containers[_]
+        }
+         # kubernetes admission review for kind ???
+        input_containers[container] {
+            container := input.request.object.spec.template.spec.containers[_]
+        }
+
+        # deployment manifest
+        input_containers[container] {
+            input.kind = "Deployment"
+            container := input.spec.template.spec.containers[_]
+        }
+      target: admission.k8s.gatekeeper.sh
+  status: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      config.kubernetes.io/index: "0"
+      config.kubernetes.io/path: app/service.yaml
+    labels:
+      app: test-app
+    name: test-app
+    namespace: test
+  spec:
+    ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: http
+    selector:
+      app: test-app
+    type: ClusterIP
+kind: List' | docker run -i gcr.io/kpt-functions/gatekeeper-validate
