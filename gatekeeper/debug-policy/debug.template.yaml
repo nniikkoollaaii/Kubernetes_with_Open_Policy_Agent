@@ -1,0 +1,25 @@
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: debug
+spec:
+  crd:
+    spec:
+      names:
+        kind: debug
+      validation:
+        # Schema for the `parameters` field
+        openAPIV3Schema:
+          properties:
+            registry:
+              type: array
+              items: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package debug
+
+        violation[{"msg": msg, "details": {}}] {
+          1 == 1
+          msg := sprintf("REQUEST IS: %v", [input])
+        }

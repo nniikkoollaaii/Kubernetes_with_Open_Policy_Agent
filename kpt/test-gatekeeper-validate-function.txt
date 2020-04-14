@@ -89,15 +89,15 @@ items:
         violation[{"msg": msg, "details": {}}] {
           input_containers[container]
           #(, "quay.io/")
-          not startswith(container.image, input.parameters.registry)
-          msg := sprintf("image comes from untrusted registry")
+          not startswith("test", "quay.io/")
+          msg := "image comes from untrusted registry"
         }
-         # read containers from various inputs
-         # kubernetes admission review for kind pod
+        # read containers from various inputs
+        # kubernetes admission review for kind pod
         input_containers[container] {
             container := input.request.object.spec.containers[_]
         }
-         # kubernetes admission review for kind ???
+        # kubernetes admission review for kind ???
         input_containers[container] {
             container := input.request.object.spec.template.spec.containers[_]
         }

@@ -4,12 +4,6 @@ metadata:
   name: config
   namespace: "gatekeeper-system"
 spec:
-  # Data to be replicated into OPA
-  sync:
-    syncOnly:
-      - group: ""
-        version: "v1"
-        kind: "Namespace"
   validation:
     # Requests for which we want to run traces
     traces:
@@ -17,7 +11,7 @@ spec:
       - user: "kind-kind"
         kind:
           # The group, version, kind for which we want to run a trace
-          group: ""
+          group: "apps"
           version: "v1"
           kind: "Deployment"
           # If dump is defined and set to `All`, also dump the state of OPA

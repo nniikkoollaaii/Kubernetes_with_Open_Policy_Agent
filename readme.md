@@ -4,7 +4,7 @@
 
 Follow the readme in folder "kind"
 
-## Definde OPA-Policys
+## Intro to OPA-Policies
 
 https://www.openpolicyagent.org/docs/latest/policy-language/
 
@@ -33,7 +33,7 @@ Execute tests with
 
     conftest verify policy/
 
-## Check your policys against your configuration
+### Check your policys against your configuration
 
 Assuming your configuration-to-test are in folder /app like mine use:
 
@@ -64,7 +64,7 @@ I don't know why two "policy" folders but it runs
 
 
 
-## Enforce OPA-Policys in your Cluster with Gatekeeper
+## Enforce OPA-Policies in your Cluster with Gatekeeper
 
 Gatekeeper v1 (aka kube-mgmt) works with these previous written policies.
 
@@ -72,17 +72,58 @@ The current version [Gatekeeper v3](https://kubernetes.io/blog/2019/08/06/opa-ga
 
 Here policies are definied via Constraint Templates and Constraints
 
-Install Gatekeeper in your KinD Cluster
+For example we want to create a constraint template restricting images in containers to come from a trusted registry
 
-    ./kubectl apply -f gatekeeper/gatekeeper.yaml
+Here three problems come up
 
-    kubectl get all --all-namespaces
+1. Most times you're submitting a kubernetes deployment with a probably invalid image. The deployment object creates a replicaset and the replicaset creates one or more pods. Most of the examples out there intercept these CREATE, UPDATE AdmissionReviews from API Server to Gatekeeper. But to be able to test our policies against local files (for example in our cicd pipeline) our policies have to support deployment objects
 
-    ./kubectl apply -f gatekeeper/policy/registry.template.yaml
+2. Nor conftest either opa eval support validation opa constraint framework policies.
 
-    ./kubectl apply -f gatekeeper/policy/registry.constraint.yaml
+3. How to test your policies when they are defined in a Constraint Template yaml file
 
-### test these policies against your local files
+
+### How to unit tests your policies
+
+The trick we're using is still defining your policies in .rego files.
+We design the policies and the tests to be as similar as being used by gatekeeper.
+
+
+Then we automatically copy the content of the .rego files in the correct constraint template yaml files via a helm template
+
+    {{ .Files.Get  "src.rego" | indent 8 }}
+
+
+### How to enforce your policies against local files
+
+
+
+#### Extend policies to accept mainly used kubernetes objects
+
+Based on an example on the gatekeeper project for restricting registry for an image of an container https://github.com/open-policy-agent/gatekeeper/tree/master/library/general/allowedrepos
+I created an example under constraint-template-policies
+
+Its defined as an (minimal) Helm Chart
+
+src.rego contains the rego rules
+
+src_test.rego contains test cases for this rego policies
+
+constraint.yaml the constraint
+
+template.yaml contains the constraint template definition and a placeholder to be replaced by helm by the rego code
+
+Exec tests via
+
+    opa test .\constraint-template-policies\templates\allowed-registry\ --ignore *.yaml
+
+
+Helm Template into kpt directory to test locally
+
+    helm template test .\constraint-template-policies\ --output-dir ./kpt/test
+
+
+#### Apply the policies against your local files
 
 The opa binary nor conftest has the ability to check policies defined with the OPA Constraint Framework against local manifest files.
 
@@ -96,5 +137,24 @@ I modified it to get the source files from a named volume:
 
     docker run -i -v gatekeeper-policy:/source gcr.io/kpt-functions/read-yaml -i /dev/null -d source_dir=/source | docker run -i gcr.io/kpt-functions/gatekeeper-validate
 
-Currently I'm hitting an rego_parse_error.
-I filled this [Issue here](https://github.com/GoogleContainerTools/kpt/issues/493)
+It was easier for me to use the kpt binary with an dir containing all constraints, constraint templates and manifest files
+
+    kpt fn run .\kpt\app\ --image gcr.io/kpt-functions/gatekeeper-validate
+
+
+## Install Gatekeeper in your KinD Cluster
+
+    ./kubectl apply -f gatekeeper/gatekeeper.yaml
+
+    kubectl get all --all-namespaces
+
+### Apply policies to your cluster
+
+helm install currently not working because of using crds
+
+(crds directory probably but helm template does not include crds and the --include-crd param is buggy on windows)
+
+you have to manually kubectl apply first the ConstraintTemplate and then the Constraint
+
+    k apply -f .\kpt\test\constraint-template-policies-umbrella-chart\charts\allowed-registry-policy\templates\constraint.yaml
+    k apply -f .\kpt\test\constraint-template-policies-umbrella-chart\charts\allowed-registry-policy\templates\template.yaml
